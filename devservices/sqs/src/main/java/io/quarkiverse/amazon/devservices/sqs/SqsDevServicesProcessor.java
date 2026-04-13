@@ -2,18 +2,18 @@ package io.quarkiverse.amazon.devservices.sqs;
 
 import static java.util.Collections.emptyList;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.Service;
+import org.ministack.testcontainers.MiniStackContainer;
 
-import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesLocalStackProcessor;
-import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
-import io.quarkiverse.amazon.common.deployment.spi.LocalStackDevServicesBaseConfig;
+import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesMiniStackProcessor;
+import io.quarkiverse.amazon.common.deployment.spi.DevServicesMiniStackProviderBuildItem;
+import io.quarkiverse.amazon.common.deployment.spi.MiniStackDevServicesBaseConfig;
 import io.quarkiverse.amazon.common.runtime.DevServicesBuildTimeConfig;
 import io.quarkiverse.amazon.sqs.runtime.SqsBuildTimeConfig;
 import io.quarkiverse.amazon.sqs.runtime.SqsDevServicesBuildTimeConfig;
@@ -25,24 +25,24 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.QueueAttributeName;
 
-public class SqsDevServicesProcessor extends AbstractDevServicesLocalStackProcessor {
+public class SqsDevServicesProcessor extends AbstractDevServicesMiniStackProcessor {
 
     @BuildStep
-    DevServicesLocalStackProviderBuildItem setupSqs(SqsBuildTimeConfig clientBuildTimeConfig) {
-        return this.setup(Service.SQS, clientBuildTimeConfig.devservices());
+    DevServicesMiniStackProviderBuildItem setupSqs(SqsBuildTimeConfig clientBuildTimeConfig) {
+        return this.setup("sqs", clientBuildTimeConfig.devservices());
     }
 
     @Override
-    protected void prepareLocalStack(DevServicesBuildTimeConfig clientBuildTimeConfig, LocalStackContainer localstack) {
-        createQueues(localstack, getConfiguration((SqsDevServicesBuildTimeConfig) clientBuildTimeConfig));
+    protected void prepareMiniStack(DevServicesBuildTimeConfig clientBuildTimeConfig, MiniStackContainer ministack) {
+        createQueues(ministack, getConfiguration((SqsDevServicesBuildTimeConfig) clientBuildTimeConfig));
     }
 
-    public void createQueues(LocalStackContainer localstack, SqsDevServiceCfg configuration) {
+    public void createQueues(MiniStackContainer ministack, SqsDevServiceCfg configuration) {
         try (SqsClient client = SqsClient.builder()
-                .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-                .region(Region.of(localstack.getRegion()))
+                .endpointOverride(URI.create(ministack.getEndpoint()))
+                .region(Region.of("us-east-1"))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
-                        .create(localstack.getAccessKey(), localstack.getSecretKey())))
+                        .create("test", "test")))
                 .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .build()) {
             for (var queueName : configuration.queues) {
@@ -59,7 +59,7 @@ public class SqsDevServicesProcessor extends AbstractDevServicesLocalStackProces
         return new SqsDevServiceCfg(devServicesConfig);
     }
 
-    private static final class SqsDevServiceCfg extends LocalStackDevServicesBaseConfig {
+    private static final class SqsDevServiceCfg extends MiniStackDevServicesBaseConfig {
         private final Set<String> queues;
 
         public SqsDevServiceCfg(SqsDevServicesBuildTimeConfig config) {

@@ -1,16 +1,14 @@
 package io.quarkiverse.amazon.devservices.kms;
 
-import org.testcontainers.containers.localstack.LocalStackContainer.Service;
-
-import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesLocalStackProcessor;
-import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
+import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesMiniStackProcessor;
+import io.quarkiverse.amazon.common.deployment.spi.DevServicesMiniStackProviderBuildItem;
 import io.quarkiverse.amazon.kms.runtime.KmsBuildTimeConfig;
 import io.quarkus.deployment.annotations.BuildStep;
 
-public class KmsDevServicesProcessor extends AbstractDevServicesLocalStackProcessor {
+public class KmsDevServicesProcessor extends AbstractDevServicesMiniStackProcessor {
 
     @BuildStep
-    DevServicesLocalStackProviderBuildItem setupKms(KmsBuildTimeConfig clientBuildTimeConfig) {
-        return this.setup(Service.KMS, clientBuildTimeConfig.devservices());
+    DevServicesMiniStackProviderBuildItem setupKms(KmsBuildTimeConfig clientBuildTimeConfig) {
+        return this.setup("kms", clientBuildTimeConfig.devservices());
     }
 }

@@ -16,17 +16,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.jboss.logging.Logger;
+import org.ministack.testcontainers.MiniStackContainer;
 import org.testcontainers.containers.BindMode;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
-import io.quarkiverse.amazon.common.deployment.spi.BorrowedLocalStackContainer;
-import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
-import io.quarkiverse.amazon.common.deployment.spi.LocalStackDevServicesBaseConfig;
-import io.quarkiverse.amazon.common.runtime.LocalStackDevServicesBuildTimeConfig;
+import io.quarkiverse.amazon.common.deployment.spi.BorrowedMiniStackContainer;
+import io.quarkiverse.amazon.common.deployment.spi.DevServicesMiniStackProviderBuildItem;
+import io.quarkiverse.amazon.common.deployment.spi.MiniStackDevServicesBaseConfig;
+import io.quarkiverse.amazon.common.runtime.MiniStackDevServicesBuildTimeConfig;
 import io.quarkus.deployment.IsNormal;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
@@ -42,29 +41,33 @@ import io.quarkus.devservices.common.ContainerLocator;
 import io.quarkus.devservices.common.ContainerShutdownCloseable;
 import io.quarkus.runtime.LaunchMode;
 
-public class DevServicesLocalStackProcessor {
+public class DevServicesMiniStackProcessor {
 
-    private static final Logger log = Logger.getLogger(DevServicesLocalStackProcessor.class);
+    private static final Logger log = Logger.getLogger(DevServicesMiniStackProcessor.class);
 
     static volatile List<RunningDevServiceWithConfig> currentDevServices;
 
-    // global LocalStack configuration, if changed all containers will restart
-    static volatile LocalStackDevServicesConfig currentLocalStackDevServicesConfig;
+    // global MiniStack configuration, if changed all containers will restart
+    static volatile MiniStackDevServicesConfig currentMiniStackDevServicesConfig;
 
     static volatile boolean first = true;
 
-    static final String DEV_SERVICE_LABEL = "quarkus-dev-service-localstack";
+    static final String DEV_SERVICE_LABEL = "quarkus-dev-service-ministack";
 
-    // Since version 0.11, LocalStack exposes all services on the same port
-    private static final int PORT = EnabledService.named("whatever").getPort();
+    // MiniStack exposes all services on port 4566
+    private static final int PORT = 4566;
 
     private static final ContainerLocator containerLocator = new ContainerLocator(DEV_SERVICE_LABEL, PORT);
 
+    private static final String DEFAULT_REGION = "us-east-1";
+    private static final String DEFAULT_ACCESS_KEY = "test";
+    private static final String DEFAULT_SECRET_KEY = "test";
+
     @BuildStep(onlyIfNot = IsNormal.class, onlyIf = DevServicesConfig.Enabled.class)
-    public void startLocalStackDevService(
+    public void startMiniStackDevService(
             LaunchModeBuildItem launchMode,
-            LocalStackDevServicesBuildTimeConfig localStackDevServicesBuildTimeConfig,
-            List<DevServicesLocalStackProviderBuildItem> requestedServices,
+            MiniStackDevServicesBuildTimeConfig miniStackDevServicesBuildTimeConfig,
+            List<DevServicesMiniStackProviderBuildItem> requestedServices,
             DockerStatusBuildItem dockerStatusBuildItem,
             List<DevServicesSharedNetworkBuildItem> devServicesSharedNetworkBuildItem,
             Optional<DevServicesComposeProjectBuildItem> composeProjectBuildItem,
@@ -74,7 +77,7 @@ public class DevServicesLocalStackProcessor {
             BuildProducer<DevServicesResultBuildItem> devServicesResultBuildItemBuildProducer,
             LoggingSetupBuildItem loggingSetupBuildItem) {
 
-        Map<String, List<DevServicesLocalStackProviderBuildItem>> requestedServicesBySharedServiceName;
+        Map<String, List<DevServicesMiniStackProviderBuildItem>> requestedServicesBySharedServiceName;
         if (launchMode.isTest()) {
             // reuse same container for service with same service name
             // the value of the label is the service name (eg. "default")
@@ -83,7 +86,7 @@ public class DevServicesLocalStackProcessor {
                     .collect(Collectors.toMap(r -> r.getConfig().getServiceName(),
                             Collections::singletonList,
                             (requestedService1, requestedService2) -> {
-                                List<DevServicesLocalStackProviderBuildItem> ret = new ArrayList<>();
+                                List<DevServicesMiniStackProviderBuildItem> ret = new ArrayList<>();
                                 ret.addAll(requestedService1);
                                 ret.addAll(requestedService2);
                                 return ret;
@@ -98,11 +101,11 @@ public class DevServicesLocalStackProcessor {
                     .filter(rs -> rs.getConfig().isShared())
                     .collect(Collectors.toMap(
                             r -> r.getConfig().isIsolated()
-                                    ? String.format("%s-%s", r.getConfig().getServiceName(), r.getService().getName())
+                                    ? String.format("%s-%s", r.getConfig().getServiceName(), r.getServiceName())
                                     : r.getConfig().getServiceName(),
                             Collections::singletonList,
                             (requestedService1, requestedService2) -> {
-                                List<DevServicesLocalStackProviderBuildItem> ret = new ArrayList<>();
+                                List<DevServicesMiniStackProviderBuildItem> ret = new ArrayList<>();
                                 ret.addAll(requestedService1);
                                 ret.addAll(requestedService2);
                                 return ret;
@@ -115,7 +118,7 @@ public class DevServicesLocalStackProcessor {
                     .collect(Collectors.toMap(r -> r.getConfig().getServiceName(),
                             Collections::singletonList,
                             (requestedService1, requestedService2) -> {
-                                List<DevServicesLocalStackProviderBuildItem> ret = new ArrayList<>();
+                                List<DevServicesMiniStackProviderBuildItem> ret = new ArrayList<>();
                                 ret.addAll(requestedService1);
                                 ret.addAll(requestedService2);
                                 return ret;
@@ -134,12 +137,12 @@ public class DevServicesLocalStackProcessor {
             }
         }
 
-        LocalStackDevServicesConfig newlocalStackDevServicesConfig = LocalStackDevServicesConfig
-                .from(localStackDevServicesBuildTimeConfig);
+        MiniStackDevServicesConfig newMiniStackDevServicesConfig = MiniStackDevServicesConfig
+                .from(miniStackDevServicesBuildTimeConfig);
         List<RunningDevServiceWithConfig> newRunningDevServices = new ArrayList<>();
 
         if (currentDevServices != null) {
-            stopOrRestartIfRequired(newlocalStackDevServicesConfig, requestedServicesBySharedServiceName);
+            stopOrRestartIfRequired(newMiniStackDevServicesConfig, requestedServicesBySharedServiceName);
             newRunningDevServices.addAll(currentDevServices);
         }
 
@@ -148,9 +151,9 @@ public class DevServicesLocalStackProcessor {
 
         // start new or modified container
         requestedServicesBySharedServiceName.forEach((devServiceName, requestedServicesGroup) -> {
-            RunningDevService namedDevService = startLocalStack(devServiceName,
+            RunningDevService namedDevService = startMiniStack(devServiceName,
                     launchMode.getLaunchMode(),
-                    localStackDevServicesBuildTimeConfig, requestedServicesGroup,
+                    miniStackDevServicesBuildTimeConfig, requestedServicesGroup,
                     composeProjectBuildItem.map(DevServicesComposeProjectBuildItem::getDefaultNetworkId).orElse(null),
                     useSharedNetwork,
                     devServicesConfig.timeout(),
@@ -161,7 +164,7 @@ public class DevServicesLocalStackProcessor {
             }
         });
 
-        currentLocalStackDevServicesConfig = newlocalStackDevServicesConfig;
+        currentMiniStackDevServicesConfig = newMiniStackDevServicesConfig;
         currentDevServices = newRunningDevServices;
         currentDevServices
                 .forEach(devService -> devServicesResultBuildItemBuildProducer
@@ -191,10 +194,10 @@ public class DevServicesLocalStackProcessor {
     }
 
     private void stopOrRestartIfRequired(
-            LocalStackDevServicesConfig newlocalStackDevServicesConfig,
-            Map<String, List<DevServicesLocalStackProviderBuildItem>> requestedServicesBySharedServiceName) {
+            MiniStackDevServicesConfig newMiniStackDevServicesConfig,
+            Map<String, List<DevServicesMiniStackProviderBuildItem>> requestedServicesBySharedServiceName) {
 
-        boolean preMatchCondition = newlocalStackDevServicesConfig.equals(currentLocalStackDevServicesConfig);
+        boolean preMatchCondition = newMiniStackDevServicesConfig.equals(currentMiniStackDevServicesConfig);
 
         List<RunningDevServiceWithConfig> keptRunningService = new ArrayList<>();
         // Remove from the input list requested containers
@@ -219,10 +222,10 @@ public class DevServicesLocalStackProcessor {
         currentDevServices = keptRunningService;
     }
 
-    private RunningDevService startLocalStack(String devServiceName,
+    private RunningDevService startMiniStack(String devServiceName,
             LaunchMode launchMode,
-            LocalStackDevServicesBuildTimeConfig localStackDevServicesBuildTimeConfig,
-            List<DevServicesLocalStackProviderBuildItem> requestedServicesGroup,
+            MiniStackDevServicesBuildTimeConfig miniStackDevServicesBuildTimeConfig,
+            List<DevServicesMiniStackProviderBuildItem> requestedServicesGroup,
             String defaultNetworkId,
             boolean useSharedNetwork,
             Optional<Duration> timeout,
@@ -234,7 +237,7 @@ public class DevServicesLocalStackProcessor {
             return null;
 
         String prettyRequestServicesName = String.join(", ",
-                requestedServicesGroup.stream().map(ds -> ds.getService().getName()).toArray(String[]::new));
+                requestedServicesGroup.stream().map(ds -> ds.getServiceName()).toArray(String[]::new));
         String containerFriendlyName = devServiceName + " (" + prettyRequestServicesName + ")";
         StartupLogCompressor compressor = new StartupLogCompressor(
                 (launchMode == LaunchMode.TEST ? "(test) " : "") + "Amazon Dev Services for " + containerFriendlyName
@@ -248,42 +251,30 @@ public class DevServicesLocalStackProcessor {
                     requestedServicesGroup.get(0).getConfig().isShared(), launchMode);
 
             var devService = maybeContainerAddress.map(containerAddress -> {
-                // LocalStack default values are not statically exposed
-                // create an instance just to get those value
-                try (LocalStackContainer defaultValueContainerNotStarted = new LocalStackContainer(
-                        DockerImageName.parse(localStackDevServicesBuildTimeConfig.imageName())
-                                .asCompatibleSubstituteFor("localstack/localstack"))) {
-
-                    String defaultRegion = defaultValueContainerNotStarted.getRegion();
-                    String defaultAccessKey = defaultValueContainerNotStarted.getAccessKey();
-                    String defaultSecretKey = defaultValueContainerNotStarted.getSecretKey();
-
-                    requestedServicesGroup.forEach(ds -> {
-                        config.putAll(ds.getDevProvider().reuseLocalStack(new BorrowedLocalStackContainer() {
-                            public URI getEndpointOverride(EnabledService enabledService) {
-                                try {
-                                    return new URI(
-                                            "http://" + containerAddress.getHost() + ":" + containerAddress.getPort());
-                                } catch (URISyntaxException e) {
-                                    throw new IllegalStateException("Cannot obtain endpoint URL", e);
-                                }
+                requestedServicesGroup.forEach(ds -> {
+                    config.putAll(ds.getDevProvider().reuseMiniStack(new BorrowedMiniStackContainer() {
+                        public URI getEndpointOverride() {
+                            try {
+                                return new URI(
+                                        "http://" + containerAddress.getHost() + ":" + containerAddress.getPort());
+                            } catch (URISyntaxException e) {
+                                throw new IllegalStateException("Cannot obtain endpoint URL", e);
                             }
+                        }
 
-                            public String getRegion() {
-                                // DEFAULT_REGION env var can override default value and this is not supported
-                                return defaultRegion;
-                            }
+                        public String getRegion() {
+                            return DEFAULT_REGION;
+                        }
 
-                            public String getAccessKey() {
-                                return defaultAccessKey;
-                            }
+                        public String getAccessKey() {
+                            return DEFAULT_ACCESS_KEY;
+                        }
 
-                            public String getSecretKey() {
-                                return defaultSecretKey;
-                            }
-                        }));
-                    });
-                }
+                        public String getSecretKey() {
+                            return DEFAULT_SECRET_KEY;
+                        }
+                    }));
+                });
 
                 return new RunningDevService(devServiceName, containerAddress.getId(), null, config);
             }).orElseGet(
@@ -292,39 +283,36 @@ public class DevServicesLocalStackProcessor {
                                 requestedServicesGroup.stream()
                                         .map(ds -> ds.getConfig().getContainerProperties())
                                         .flatMap(ds -> ds.entrySet().stream()),
-                                localStackDevServicesBuildTimeConfig.containerProperties().entrySet()
+                                miniStackDevServicesBuildTimeConfig.containerProperties().entrySet()
                                         .stream())
                                 .collect(Collectors.toMap(entry -> entry.getKey(),
                                         entry -> entry.getValue()));
 
-                        boolean hasInitScripts = localStackDevServicesBuildTimeConfig.initScriptsFolder().isPresent()
-                                || localStackDevServicesBuildTimeConfig.initScriptsClasspath().isPresent();
-                        if (hasInitScripts && !envVars.containsKey("LOCALSTACK_HOST")) {
-                            envVars.put("LOCALSTACK_HOST", "127.0.0.1");
-                            log.debug("LocalStack init scripts detected - automatically setting LOCALSTACK_HOST=127.0.0.1 " +
-                                    "to ensure scripts can connect to LocalStack from within the container");
+                        boolean hasInitScripts = miniStackDevServicesBuildTimeConfig.initScriptsFolder().isPresent()
+                                || miniStackDevServicesBuildTimeConfig.initScriptsClasspath().isPresent();
+                        if (hasInitScripts && !envVars.containsKey("MINISTACK_HOST")) {
+                            envVars.put("MINISTACK_HOST", "127.0.0.1");
+                            log.debug("MiniStack init scripts detected - automatically setting MINISTACK_HOST=127.0.0.1 " +
+                                    "to ensure scripts can connect to MiniStack from within the container");
                         }
 
-                        LocalStackContainer container = new LocalStackContainer(
-                                DockerImageName.parse(localStackDevServicesBuildTimeConfig.imageName())
-                                        .asCompatibleSubstituteFor("localstack/localstack"))
+                        MiniStackContainer container = new MiniStackContainer(
+                                DockerImageName.parse(miniStackDevServicesBuildTimeConfig.imageName()))
                                 .withEnv(envVars)
-                                .withServices(requestedServicesGroup.stream().map(ds -> ds.getService())
-                                        .toArray(EnabledService[]::new))
                                 .withLabel(DEV_SERVICE_LABEL, devServiceName);
 
-                        localStackDevServicesBuildTimeConfig.port().ifPresent(
+                        miniStackDevServicesBuildTimeConfig.port().ifPresent(
                                 port -> container.setPortBindings(Collections.singletonList("%s:%s".formatted(port, PORT))));
 
-                        localStackDevServicesBuildTimeConfig.initScriptsFolder().ifPresentOrElse(initScriptsFolder -> {
+                        miniStackDevServicesBuildTimeConfig.initScriptsFolder().ifPresentOrElse(initScriptsFolder -> {
                             container.withFileSystemBind(initScriptsFolder, "/etc/localstack/init/ready.d", BindMode.READ_ONLY);
-                        }, () -> localStackDevServicesBuildTimeConfig.initScriptsClasspath().ifPresent(resourcePath -> {
+                        }, () -> miniStackDevServicesBuildTimeConfig.initScriptsClasspath().ifPresent(resourcePath -> {
                             // scripts must be executable but withClasspathResourceMapping will extract file with read only for regular file
                             final MountableFile mountableFile = MountableFile.forClasspathResource(resourcePath, 555);
                             container.withCopyFileToContainer(mountableFile, "/etc/localstack/init/ready.d");
                         }));
 
-                        localStackDevServicesBuildTimeConfig.initCompletionMsg().ifPresent(initCompletionMsg -> {
+                        miniStackDevServicesBuildTimeConfig.initCompletionMsg().ifPresent(initCompletionMsg -> {
                             container.waitingFor(Wait.forLogMessage(".*" + initCompletionMsg + ".*\\n", 1));
                         });
 
@@ -339,7 +327,7 @@ public class DevServicesLocalStackProcessor {
                         // Configure the services with the container, passing hostname information
                         final String finalHostName = hostName;
                         requestedServicesGroup.forEach(ds -> {
-                            Map<String, String> serviceConfig = ds.getDevProvider().prepareLocalStack(container);
+                            Map<String, String> serviceConfig = ds.getDevProvider().prepareMiniStack(container);
 
                             // If we're using a shared network, modify endpoint URLs to use the hostname
                             if (finalHostName != null && useSharedNetwork) {
@@ -351,7 +339,7 @@ public class DevServicesLocalStackProcessor {
 
                         log.info("Amazon Dev Services for " + containerFriendlyName
                                 + " started. Other Quarkus applications in dev mode will find "
-                                + "the LocalStack automatically.");
+                                + "the MiniStack automatically.");
 
                         return new RunningDevService(devServiceName, container.getContainerId(),
                                 new ContainerShutdownCloseable(container, containerFriendlyName), config);
@@ -366,15 +354,15 @@ public class DevServicesLocalStackProcessor {
         }
     }
 
-    private static final class LocalStackDevServicesConfig {
+    private static final class MiniStackDevServicesConfig {
         private final String imageName;
         private final Map<String, String> containerProperties;
 
-        public static LocalStackDevServicesConfig from(LocalStackDevServicesBuildTimeConfig config) {
-            return new LocalStackDevServicesConfig(config);
+        public static MiniStackDevServicesConfig from(MiniStackDevServicesBuildTimeConfig config) {
+            return new MiniStackDevServicesConfig(config);
         }
 
-        private LocalStackDevServicesConfig(LocalStackDevServicesBuildTimeConfig config) {
+        private MiniStackDevServicesConfig(MiniStackDevServicesBuildTimeConfig config) {
             this.imageName = config.imageName();
             this.containerProperties = config.containerProperties();
         }
@@ -385,7 +373,7 @@ public class DevServicesLocalStackProcessor {
                 return true;
             if (o == null || getClass() != o.getClass())
                 return false;
-            LocalStackDevServicesConfig that = (LocalStackDevServicesConfig) o;
+            MiniStackDevServicesConfig that = (MiniStackDevServicesConfig) o;
             return Objects.equals(imageName, that.imageName)
                     && Objects.equals(containerProperties, that.containerProperties);
         }
@@ -433,10 +421,10 @@ public class DevServicesLocalStackProcessor {
 
         private final RunningDevService runningDevService;
 
-        private final Map<String, Set<LocalStackDevServicesBaseConfig>> config;
+        private final Map<String, Set<MiniStackDevServicesBaseConfig>> config;
 
         public RunningDevServiceWithConfig(RunningDevService namedDevService,
-                List<DevServicesLocalStackProviderBuildItem> requestedServicesGroup) {
+                List<DevServicesMiniStackProviderBuildItem> requestedServicesGroup) {
             this.runningDevService = namedDevService;
             this.config = createComparableConfigGroup(requestedServicesGroup);
         }
@@ -445,16 +433,16 @@ public class DevServicesLocalStackProcessor {
             return runningDevService;
         }
 
-        private Map<String, Set<LocalStackDevServicesBaseConfig>> createComparableConfigGroup(
-                List<DevServicesLocalStackProviderBuildItem> servicesGroup) {
-            Map<String, Set<LocalStackDevServicesBaseConfig>> configMap = new HashMap<>();
-            for (DevServicesLocalStackProviderBuildItem item : servicesGroup) {
-                configMap.computeIfAbsent(item.getService().getName(), k -> new HashSet<>()).add(item.getConfig());
+        private Map<String, Set<MiniStackDevServicesBaseConfig>> createComparableConfigGroup(
+                List<DevServicesMiniStackProviderBuildItem> servicesGroup) {
+            Map<String, Set<MiniStackDevServicesBaseConfig>> configMap = new HashMap<>();
+            for (DevServicesMiniStackProviderBuildItem item : servicesGroup) {
+                configMap.computeIfAbsent(item.getServiceName(), k -> new HashSet<>()).add(item.getConfig());
             }
             return configMap;
         }
 
-        public boolean matchesOtherConfig(List<DevServicesLocalStackProviderBuildItem> otherServiceList) {
+        public boolean matchesOtherConfig(List<DevServicesMiniStackProviderBuildItem> otherServiceList) {
             return this.config.equals(createComparableConfigGroup(otherServiceList));
         }
     }

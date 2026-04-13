@@ -8,7 +8,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 
 @QuarkusTest
-public class AmazonLocalStackTest {
+public class AmazonMiniStackTest {
 
     @Test
     public void testSesAsync() {

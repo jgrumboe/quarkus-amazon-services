@@ -1,16 +1,14 @@
 package io.quarkiverse.amazon.devservices.bedrock;
 
-import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
-
 import io.quarkiverse.amazon.bedrock.runtime.BedrockBuildTimeConfig;
-import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesLocalStackProcessor;
-import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
+import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesMiniStackProcessor;
+import io.quarkiverse.amazon.common.deployment.spi.DevServicesMiniStackProviderBuildItem;
 import io.quarkus.deployment.annotations.BuildStep;
 
-public class BedrockDevServicesProcessor extends AbstractDevServicesLocalStackProcessor {
+public class BedrockDevServicesProcessor extends AbstractDevServicesMiniStackProcessor {
 
     @BuildStep
-    DevServicesLocalStackProviderBuildItem setupBedrock(BedrockBuildTimeConfig clientBuildTimeConfig) {
-        return this.setup(EnabledService.named("bedrock"), clientBuildTimeConfig.devservices());
+    DevServicesMiniStackProviderBuildItem setupBedrock(BedrockBuildTimeConfig clientBuildTimeConfig) {
+        return this.setup("bedrock", clientBuildTimeConfig.devservices());
     }
 }

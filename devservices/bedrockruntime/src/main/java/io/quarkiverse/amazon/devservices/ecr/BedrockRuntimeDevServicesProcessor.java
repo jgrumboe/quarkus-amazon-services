@@ -1,21 +1,19 @@
 package io.quarkiverse.amazon.devservices.ecr;
 
-import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
-
 import io.quarkiverse.amazon.bedrockruntime.runtime.BedrockRuntimeBuildTimeConfig;
-import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesLocalStackProcessor;
-import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
+import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesMiniStackProcessor;
+import io.quarkiverse.amazon.common.deployment.spi.DevServicesMiniStackProviderBuildItem;
 import io.quarkus.deployment.annotations.BuildStep;
 
-public class BedrockRuntimeDevServicesProcessor extends AbstractDevServicesLocalStackProcessor {
+public class BedrockRuntimeDevServicesProcessor extends AbstractDevServicesMiniStackProcessor {
 
     @BuildStep
-    DevServicesLocalStackProviderBuildItem setupBedrockRuntime(BedrockRuntimeBuildTimeConfig clientBuildTimeConfig) {
-        return this.setup(EnabledService.named("bedrock"), clientBuildTimeConfig.devservices());
+    DevServicesMiniStackProviderBuildItem setupBedrockRuntime(BedrockRuntimeBuildTimeConfig clientBuildTimeConfig) {
+        return this.setup("bedrock", clientBuildTimeConfig.devservices());
     }
 
     @Override
-    protected String getPropertyConfigurationName(EnabledService enabledService) {
+    protected String getPropertyConfigurationName(String serviceName) {
         return "bedrockruntime";
     }
 }

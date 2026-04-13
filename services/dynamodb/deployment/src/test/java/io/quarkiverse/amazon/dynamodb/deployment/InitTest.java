@@ -19,10 +19,10 @@ public class InitTest {
     @RegisterExtension
     static final QuarkusUnitTest config = new QuarkusUnitTest()
             .withApplicationRoot((jar) -> jar
-                    .addAsResource("localstack-init-script-config.properties", "application.properties"));
+                    .addAsResource("ministack-init-script-config.properties", "application.properties"));
 
     @Test
-    @DisplayName("QuarkusFruits table created by localstack init script")
+    @DisplayName("QuarkusFruits table created by ministack init script")
     void test() {
         assertThat(client.listTables().tableNames(), hasItem("QuarkusFruits"));
     }

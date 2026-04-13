@@ -3,13 +3,13 @@ package io.quarkiverse.amazon.common.deployment.spi;
 import java.util.Map;
 import java.util.Objects;
 
-public class LocalStackDevServicesBaseConfig {
+public class MiniStackDevServicesBaseConfig {
     private final boolean shared;
     private final boolean isolated;
     private final String serviceName;
     private final Map<String, String> containerProperties;
 
-    public LocalStackDevServicesBaseConfig(boolean shared, boolean isolated, String serviceName,
+    public MiniStackDevServicesBaseConfig(boolean shared, boolean isolated, String serviceName,
             Map<String, String> containerProperties) {
         this.shared = shared;
         this.isolated = isolated;
@@ -44,7 +44,7 @@ public class LocalStackDevServicesBaseConfig {
             return true;
         if (o == null || getClass() != o.getClass())
             return false;
-        LocalStackDevServicesBaseConfig that = (LocalStackDevServicesBaseConfig) o;
+        MiniStackDevServicesBaseConfig that = (MiniStackDevServicesBaseConfig) o;
         return shared == that.shared
                 && isolated == that.isolated
                 && Objects.equals(serviceName, that.serviceName)

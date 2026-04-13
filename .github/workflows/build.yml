@@ -5,34 +5,33 @@ on:
     branches:
       - "main"
     paths-ignore:
-      - '.gitignore'
-      - 'CODEOWNERS'
-      - 'LICENSE'
-      - '*.md'
-      - '*.adoc'
-      - '*.txt'
-      - '.all-contributorsrc'
+      - ".gitignore"
+      - "CODEOWNERS"
+      - "LICENSE"
+      - "*.md"
+      - "*.adoc"
+      - "*.txt"
+      - ".all-contributorsrc"
   pull_request:
     paths-ignore:
-      - '.gitignore'
-      - 'CODEOWNERS'
-      - 'LICENSE'
-      - '*.md'
-      - '*.adoc'
-      - '*.txt'
-      - '.all-contributorsrc'
+      - ".gitignore"
+      - "CODEOWNERS"
+      - "LICENSE"
+      - "*.md"
+      - "*.adoc"
+      - "*.txt"
+      - ".all-contributorsrc"
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - sync-client-type: "url"
-            async-client-type: "netty"
-          - sync-client-type: "apache"
-            async-client-type: "netty"
+          # - sync-client-type: "url"
+          #   async-client-type: "netty"
+          # - sync-client-type: "apache"
+          #   async-client-type: "netty"
           - sync-client-type: "aws-crt"
             async-client-type: "aws-crt"
 

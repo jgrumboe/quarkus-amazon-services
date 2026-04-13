@@ -15,7 +15,7 @@ public class MotoContainer extends GenericContainer<MotoContainer> {
     private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("motoserver/moto");
 
     /**
-     * @param dockerImageName image name to use for Localstack
+     * @param dockerImageName image name to use for Moto
      */
     public MotoContainer(final DockerImageName dockerImageName) {
         super(dockerImageName.asCompatibleSubstituteFor(DEFAULT_IMAGE_NAME));

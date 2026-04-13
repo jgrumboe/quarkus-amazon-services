@@ -4,16 +4,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.jboss.logging.Logger;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
+import org.ministack.testcontainers.MiniStackContainer;
 
 import io.quarkiverse.amazon.common.runtime.AwsCredentialsProviderType;
 import io.quarkiverse.amazon.common.runtime.DevServicesBuildTimeConfig;
 import io.quarkus.runtime.configuration.ConfigUtils;
 
-public abstract class AbstractDevServicesLocalStackProcessor {
+public abstract class AbstractDevServicesMiniStackProcessor {
 
-    private static final Logger log = Logger.getLogger(AbstractDevServicesLocalStackProcessor.class);
+    private static final Logger log = Logger.getLogger(AbstractDevServicesMiniStackProcessor.class);
 
     private static final String ENDPOINT_OVERRIDE = "quarkus.%s.endpoint-override";
     private static final String AWS_REGION = "quarkus.%s.aws.region";
@@ -21,57 +20,61 @@ public abstract class AbstractDevServicesLocalStackProcessor {
     private static final String AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID = "quarkus.%s.aws.credentials.static-provider.access-key-id";
     private static final String AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY = "quarkus.%s.aws.credentials.static-provider.secret-access-key";
 
-    protected DevServicesLocalStackProviderBuildItem setup(EnabledService enabledService,
+    private static final String DEFAULT_REGION = "us-east-1";
+    private static final String DEFAULT_ACCESS_KEY = "test";
+    private static final String DEFAULT_SECRET_KEY = "test";
+
+    protected DevServicesMiniStackProviderBuildItem setup(String serviceName,
             DevServicesBuildTimeConfig devServicesBuildTimeConfig) {
 
-        String propertyConfigurationName = getPropertyConfigurationName(enabledService);
+        String propertyConfigurationName = getPropertyConfigurationName(serviceName);
 
         // explicitly disabled
         if (!devServicesBuildTimeConfig.enabled().orElse(true)) {
             log.debugf(
                     "Not starting Dev Services for Amazon Services - %s, as it has been disabled in the config.",
-                    enabledService.getName());
+                    serviceName);
             return null;
         }
 
         String endpointOverride = String.format(ENDPOINT_OVERRIDE, propertyConfigurationName);
         if (ConfigUtils.isPropertyPresent(endpointOverride)) {
             log.debugf("Not starting Dev Services for Amazon Services - %s, the %s is configured.",
-                    enabledService.getName(),
+                    serviceName,
                     endpointOverride);
             return null;
         }
 
-        LocalStackDevServicesBaseConfig sharedConfig = getConfiguration(devServicesBuildTimeConfig);
+        MiniStackDevServicesBaseConfig sharedConfig = getConfiguration(devServicesBuildTimeConfig);
 
-        return new DevServicesLocalStackProviderBuildItem(enabledService,
+        return new DevServicesMiniStackProviderBuildItem(serviceName,
                 sharedConfig,
                 new DevServicesAmazonProvider() {
                     @Override
-                    public Map<String, String> prepareLocalStack(LocalStackContainer localstack) {
-                        AbstractDevServicesLocalStackProcessor.this.prepareLocalStack(
+                    public Map<String, String> prepareMiniStack(MiniStackContainer ministack) {
+                        AbstractDevServicesMiniStackProcessor.this.prepareMiniStack(
                                 devServicesBuildTimeConfig,
-                                localstack);
+                                ministack);
 
                         var config = new HashMap<String, String>();
 
                         // Standard configuration - use the container's generated endpoint
-                        // The hostname modification for shared network is handled in DevServicesLocalStackProcessor
+                        // The hostname modification for shared network is handled in DevServicesMiniStackProcessor
                         config.put(
                                 endpointOverride,
-                                localstack.getEndpointOverride(enabledService).toString());
+                                ministack.getEndpoint());
 
                         config.put(String.format(AWS_REGION, propertyConfigurationName),
-                                localstack.getRegion());
+                                DEFAULT_REGION);
                         config.put(String.format(AWS_CREDENTIALS_TYPE,
                                 propertyConfigurationName),
                                 AwsCredentialsProviderType.STATIC.name());
                         config.put(String.format(AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID,
                                 propertyConfigurationName),
-                                localstack.getAccessKey());
+                                DEFAULT_ACCESS_KEY);
                         config.put(String.format(AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY,
                                 propertyConfigurationName),
-                                localstack.getSecretKey());
+                                DEFAULT_SECRET_KEY);
 
                         overrideDefaultConfig(config);
 
@@ -79,23 +82,23 @@ public abstract class AbstractDevServicesLocalStackProcessor {
                     }
 
                     @Override
-                    public Map<String, String> reuseLocalStack(
-                            BorrowedLocalStackContainer localstack) {
+                    public Map<String, String> reuseMiniStack(
+                            BorrowedMiniStackContainer ministack) {
                         return Map.of(
                                 endpointOverride,
-                                localstack.getEndpointOverride(enabledService)
+                                ministack.getEndpointOverride()
                                         .toString(),
                                 String.format(AWS_REGION, propertyConfigurationName),
-                                localstack.getRegion(),
+                                ministack.getRegion(),
                                 String.format(AWS_CREDENTIALS_TYPE,
                                         propertyConfigurationName),
                                 AwsCredentialsProviderType.STATIC.name(),
                                 String.format(AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID,
                                         propertyConfigurationName),
-                                localstack.getAccessKey(),
+                                ministack.getAccessKey(),
                                 String.format(AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY,
                                         propertyConfigurationName),
-                                localstack.getSecretKey());
+                                ministack.getSecretKey());
                     }
                 });
     }
@@ -109,9 +112,9 @@ public abstract class AbstractDevServicesLocalStackProcessor {
      * @param devServicesBuildTimeConfig build time configuration
      * @return
      */
-    protected LocalStackDevServicesBaseConfig getConfiguration(
+    protected MiniStackDevServicesBaseConfig getConfiguration(
             DevServicesBuildTimeConfig devServicesBuildTimeConfig) {
-        return new LocalStackDevServicesBaseConfig(
+        return new MiniStackDevServicesBaseConfig(
                 devServicesBuildTimeConfig.shared(),
                 devServicesBuildTimeConfig.isolated(),
                 devServicesBuildTimeConfig.serviceName(),
@@ -119,35 +122,35 @@ public abstract class AbstractDevServicesLocalStackProcessor {
     }
 
     /**
-     * Prepare the owned localStack container
+     * Prepare the owned MiniStack container
      *
      * @param devServicesBuildTimeConfig build time configuration to apply to container
-     * @param localstack the new localStack container to prepare
+     * @param ministack the new MiniStack container to prepare
      */
-    protected void prepareLocalStack(DevServicesBuildTimeConfig devServicesBuildTimeConfig,
-            LocalStackContainer localstack) {
+    protected void prepareMiniStack(DevServicesBuildTimeConfig devServicesBuildTimeConfig,
+            MiniStackContainer ministack) {
     }
 
     /**
-     * Returns the property configuration name for the given {@link LocalStackContainer.EnabledService}.
+     * Returns the property configuration name for the given service name.
      * <p>
      * The property configuration name is the name of the service, which is the same as the AWSSDK artifact id.
      * The only exception is the Step Functions service, which is named "sfn" in the AWSSDK, "stepfunctions"
-     * and "logs" in the LocalStack configuration.
+     * in the MiniStack configuration, and "events" for EventBridge.
      * <p>
      *
-     * @param enabledService the LocalStack enabled service
+     * @param serviceName the service name
      * @return the property configuration name
      */
-    protected String getPropertyConfigurationName(LocalStackContainer.EnabledService enabledService) {
-        if (enabledService == LocalStackContainer.Service.STEPFUNCTIONS)
+    protected String getPropertyConfigurationName(String serviceName) {
+        if (serviceName.equals("stepfunctions"))
             return "sfn";
-        if (enabledService.getName().equals("events"))
+        if (serviceName.equals("events"))
             return "eventbridge";
-        if (enabledService == LocalStackContainer.Service.CLOUDWATCHLOGS)
+        if (serviceName.equals("logs"))
             return "cloudwatchlogs";
-        if (enabledService.getName().equals("scheduler"))
+        if (serviceName.equals("scheduler"))
             return "eventbridge-scheduler";
-        return enabledService.getName();
+        return serviceName;
     }
 }
