@@ -7,4 +7,4 @@ aws dynamodb create-table --endpoint-url=http://localhost:4566 \
                           --provisioned-throughput ReadCapacityUnits=1,WriteCapacityUnits=1 \
                           --profile=localstack \
                           --region=us-east-1
-echo "#### Dynamodb init completed FOOBAR"
+echo "#### Dynamodb QuarkusFruitsinit completed"
