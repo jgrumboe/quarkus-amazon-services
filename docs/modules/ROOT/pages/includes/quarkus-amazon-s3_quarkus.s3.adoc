@@ -181,7 +181,7 @@ Environment variable: `+++QUARKUS_S3_DEVSERVICES_SERVICE_NAME+++`
 endif::add-copy-button-to-env-var[]
 --
 |string
-|`+++localstack+++`
+|`+++ministack+++`
 
 a|icon:lock[title=Fixed at build time] [[quarkus-amazon-s3_quarkus-s3-devservices-container-properties-container-properties]] [.property-path]##link:#quarkus-amazon-s3_quarkus-s3-devservices-container-properties-container-properties[`+++quarkus.s3.devservices.container-properties."container-properties"+++`]##
 ifdef::add-copy-button-to-config-props[]

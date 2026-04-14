@@ -16,15 +16,15 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.jboss.logging.Logger;
+import org.ministack.testcontainers.MiniStackContainer;
 import org.testcontainers.containers.BindMode;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import io.quarkiverse.amazon.common.deployment.spi.BorrowedLocalStackContainer;
 import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
+import io.quarkiverse.amazon.common.deployment.spi.EnabledService;
 import io.quarkiverse.amazon.common.deployment.spi.LocalStackDevServicesBaseConfig;
 import io.quarkiverse.amazon.common.runtime.LocalStackDevServicesBuildTimeConfig;
 import io.quarkus.deployment.IsNormal;
@@ -55,8 +55,13 @@ public class DevServicesLocalStackProcessor {
 
     static final String DEV_SERVICE_LABEL = "quarkus-dev-service-localstack";
 
-    // Since version 0.11, LocalStack exposes all services on the same port
-    private static final int PORT = EnabledService.named("whatever").getPort();
+    // MiniStack exposes all services on the same port
+    private static final int PORT = 4566;
+
+    // Default credentials and region for MiniStack
+    private static final String DEFAULT_REGION = "us-east-1";
+    private static final String DEFAULT_ACCESS_KEY = "test";
+    private static final String DEFAULT_SECRET_KEY = "test";
 
     private static final ContainerLocator containerLocator = new ContainerLocator(DEV_SERVICE_LABEL, PORT);
 
@@ -248,42 +253,30 @@ public class DevServicesLocalStackProcessor {
                     requestedServicesGroup.get(0).getConfig().isShared(), launchMode);
 
             var devService = maybeContainerAddress.map(containerAddress -> {
-                // LocalStack default values are not statically exposed
-                // create an instance just to get those value
-                try (LocalStackContainer defaultValueContainerNotStarted = new LocalStackContainer(
-                        DockerImageName.parse(localStackDevServicesBuildTimeConfig.imageName())
-                                .asCompatibleSubstituteFor("localstack/localstack"))) {
-
-                    String defaultRegion = defaultValueContainerNotStarted.getRegion();
-                    String defaultAccessKey = defaultValueContainerNotStarted.getAccessKey();
-                    String defaultSecretKey = defaultValueContainerNotStarted.getSecretKey();
-
-                    requestedServicesGroup.forEach(ds -> {
-                        config.putAll(ds.getDevProvider().reuseLocalStack(new BorrowedLocalStackContainer() {
-                            public URI getEndpointOverride(EnabledService enabledService) {
-                                try {
-                                    return new URI(
-                                            "http://" + containerAddress.getHost() + ":" + containerAddress.getPort());
-                                } catch (URISyntaxException e) {
-                                    throw new IllegalStateException("Cannot obtain endpoint URL", e);
-                                }
+                requestedServicesGroup.forEach(ds -> {
+                    config.putAll(ds.getDevProvider().reuseLocalStack(new BorrowedLocalStackContainer() {
+                        public URI getEndpointOverride(EnabledService enabledService) {
+                            try {
+                                return new URI(
+                                        "http://" + containerAddress.getHost() + ":" + containerAddress.getPort());
+                            } catch (URISyntaxException e) {
+                                throw new IllegalStateException("Cannot obtain endpoint URL", e);
                             }
+                        }
 
-                            public String getRegion() {
-                                // DEFAULT_REGION env var can override default value and this is not supported
-                                return defaultRegion;
-                            }
+                        public String getRegion() {
+                            return DEFAULT_REGION;
+                        }
 
-                            public String getAccessKey() {
-                                return defaultAccessKey;
-                            }
+                        public String getAccessKey() {
+                            return DEFAULT_ACCESS_KEY;
+                        }
 
-                            public String getSecretKey() {
-                                return defaultSecretKey;
-                            }
-                        }));
-                    });
-                }
+                        public String getSecretKey() {
+                            return DEFAULT_SECRET_KEY;
+                        }
+                    }));
+                });
 
                 return new RunningDevService(devServiceName, containerAddress.getId(), null, config);
             }).orElseGet(
@@ -299,18 +292,10 @@ public class DevServicesLocalStackProcessor {
 
                         boolean hasInitScripts = localStackDevServicesBuildTimeConfig.initScriptsFolder().isPresent()
                                 || localStackDevServicesBuildTimeConfig.initScriptsClasspath().isPresent();
-                        if (hasInitScripts && !envVars.containsKey("LOCALSTACK_HOST")) {
-                            envVars.put("LOCALSTACK_HOST", "127.0.0.1");
-                            log.debug("LocalStack init scripts detected - automatically setting LOCALSTACK_HOST=127.0.0.1 " +
-                                    "to ensure scripts can connect to LocalStack from within the container");
-                        }
 
-                        LocalStackContainer container = new LocalStackContainer(
-                                DockerImageName.parse(localStackDevServicesBuildTimeConfig.imageName())
-                                        .asCompatibleSubstituteFor("localstack/localstack"))
+                        MiniStackContainer container = new MiniStackContainer(
+                                DockerImageName.parse(localStackDevServicesBuildTimeConfig.imageName()))
                                 .withEnv(envVars)
-                                .withServices(requestedServicesGroup.stream().map(ds -> ds.getService())
-                                        .toArray(EnabledService[]::new))
                                 .withLabel(DEV_SERVICE_LABEL, devServiceName);
 
                         localStackDevServicesBuildTimeConfig.port().ifPresent(

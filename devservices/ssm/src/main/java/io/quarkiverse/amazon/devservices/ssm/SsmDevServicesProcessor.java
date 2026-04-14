@@ -1,9 +1,8 @@
 package io.quarkiverse.amazon.devservices.ssm;
 
-import org.testcontainers.containers.localstack.LocalStackContainer.Service;
-
 import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesLocalStackProcessor;
 import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
+import io.quarkiverse.amazon.common.deployment.spi.Service;
 import io.quarkiverse.amazon.ssm.runtime.SsmBuildTimeConfig;
 import io.quarkus.deployment.annotations.BuildStep;
 
