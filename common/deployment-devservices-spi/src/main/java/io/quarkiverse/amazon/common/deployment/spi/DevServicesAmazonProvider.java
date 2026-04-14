@@ -2,7 +2,7 @@ package io.quarkiverse.amazon.common.deployment.spi;
 
 import java.util.Map;
 
-import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.ministack.testcontainers.MiniStackContainer;
 
 /**
  * Allows to prepare a localstack container and get client properties
@@ -14,7 +14,7 @@ public interface DevServicesAmazonProvider {
      * @param localstack The new localstack container
      * @return properties to configure a client to consume the container
      */
-    Map<String, String> prepareLocalStack(LocalStackContainer localstack);
+    Map<String, String> prepareLocalStack(MiniStackContainer localstack);
 
     /**
      * Prepare an existing container not owned by this application

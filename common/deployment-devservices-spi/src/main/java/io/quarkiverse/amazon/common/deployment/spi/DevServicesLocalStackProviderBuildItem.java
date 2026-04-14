@@ -1,7 +1,5 @@
 package io.quarkiverse.amazon.common.deployment.spi;
 
-import org.testcontainers.containers.localstack.LocalStackContainer.EnabledService;
-
 import io.quarkus.builder.item.MultiBuildItem;
 
 /**

@@ -181,7 +181,7 @@ Environment variable: `+++QUARKUS_DYNAMODB_DEVSERVICES_SERVICE_NAME+++`
 endif::add-copy-button-to-env-var[]
 --
 |string
-|`+++localstack+++`
+|`+++ministack+++`
 
 a|icon:lock[title=Fixed at build time] [[quarkus-amazon-dynamodb_quarkus-dynamodb-devservices-container-properties-container-properties]] [.property-path]##link:#quarkus-amazon-dynamodb_quarkus-dynamodb-devservices-container-properties-container-properties[`+++quarkus.dynamodb.devservices.container-properties."container-properties"+++`]##
 ifdef::add-copy-button-to-config-props[]

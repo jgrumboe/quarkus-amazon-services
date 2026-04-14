@@ -2,18 +2,19 @@ package io.quarkiverse.amazon.devservices.sqs;
 
 import static java.util.Collections.emptyList;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.Service;
+import org.ministack.testcontainers.MiniStackContainer;
 
 import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesLocalStackProcessor;
 import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
 import io.quarkiverse.amazon.common.deployment.spi.LocalStackDevServicesBaseConfig;
+import io.quarkiverse.amazon.common.deployment.spi.Service;
 import io.quarkiverse.amazon.common.runtime.DevServicesBuildTimeConfig;
 import io.quarkiverse.amazon.sqs.runtime.SqsBuildTimeConfig;
 import io.quarkiverse.amazon.sqs.runtime.SqsDevServicesBuildTimeConfig;
@@ -33,16 +34,16 @@ public class SqsDevServicesProcessor extends AbstractDevServicesLocalStackProces
     }
 
     @Override
-    protected void prepareLocalStack(DevServicesBuildTimeConfig clientBuildTimeConfig, LocalStackContainer localstack) {
+    protected void prepareLocalStack(DevServicesBuildTimeConfig clientBuildTimeConfig, MiniStackContainer localstack) {
         createQueues(localstack, getConfiguration((SqsDevServicesBuildTimeConfig) clientBuildTimeConfig));
     }
 
-    public void createQueues(LocalStackContainer localstack, SqsDevServiceCfg configuration) {
+    public void createQueues(MiniStackContainer localstack, SqsDevServiceCfg configuration) {
         try (SqsClient client = SqsClient.builder()
-                .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.SQS))
-                .region(Region.of(localstack.getRegion()))
+                .endpointOverride(URI.create(localstack.getEndpoint()))
+                .region(Region.of("us-east-1"))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
-                        .create(localstack.getAccessKey(), localstack.getSecretKey())))
+                        .create("test", "test")))
                 .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .build()) {
             for (var queueName : configuration.queues) {

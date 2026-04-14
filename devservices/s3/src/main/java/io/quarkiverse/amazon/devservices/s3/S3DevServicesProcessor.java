@@ -1,15 +1,16 @@
 package io.quarkiverse.amazon.devservices.s3;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.Service;
+import org.ministack.testcontainers.MiniStackContainer;
 
 import io.quarkiverse.amazon.common.deployment.spi.AbstractDevServicesLocalStackProcessor;
 import io.quarkiverse.amazon.common.deployment.spi.DevServicesLocalStackProviderBuildItem;
 import io.quarkiverse.amazon.common.deployment.spi.LocalStackDevServicesBaseConfig;
+import io.quarkiverse.amazon.common.deployment.spi.Service;
 import io.quarkiverse.amazon.common.runtime.DevServicesBuildTimeConfig;
 import io.quarkiverse.amazon.s3.runtime.S3BuildTimeConfig;
 import io.quarkiverse.amazon.s3.runtime.S3DevServicesBuildTimeConfig;
@@ -30,7 +31,7 @@ public class S3DevServicesProcessor extends AbstractDevServicesLocalStackProcess
     }
 
     @Override
-    protected void prepareLocalStack(DevServicesBuildTimeConfig clientBuildTimeConfig, LocalStackContainer localstack) {
+    protected void prepareLocalStack(DevServicesBuildTimeConfig clientBuildTimeConfig, MiniStackContainer localstack) {
         createBuckets(localstack, getConfiguration((S3DevServicesBuildTimeConfig) clientBuildTimeConfig));
     }
 
@@ -42,13 +43,13 @@ public class S3DevServicesProcessor extends AbstractDevServicesLocalStackProcess
         defaultConfig.put(AWS_PATH_STYLE_ACCESS, "true");
     }
 
-    public void createBuckets(LocalStackContainer localstack, S3DevServiceCfg configuration) {
+    public void createBuckets(MiniStackContainer localstack, S3DevServiceCfg configuration) {
         try (S3Client client = S3Client.builder()
-                .endpointOverride(localstack.getEndpointOverride(LocalStackContainer.Service.S3))
-                .region(Region.of(localstack.getRegion()))
+                .endpointOverride(URI.create(localstack.getEndpoint()))
+                .region(Region.of("us-east-1"))
                 .forcePathStyle(true)
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials
-                        .create(localstack.getAccessKey(), localstack.getSecretKey())))
+                        .create("test", "test")))
                 .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .build()) {
             for (var bucketName : configuration.buckets) {
